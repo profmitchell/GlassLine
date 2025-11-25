@@ -33,13 +33,13 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "com.example.plugintemplate-for-obs"
+            "bundleId": "com.soundatlas.librarymanager"
         }
     },
-    "name": "plugintemplate-for-obs",
-    "displayName": "Plugin Template for OBS",
+    "name": "soundatlas-library-manager",
+    "displayName": "SoundAtlas Library Manager",
     "version": "1.0.0",
-    "author": "Your Name Here",
-    "website": "https://example.com",
-    "email": "me@example.com"
+    "author": "SoundAtlas Team",
+    "website": "https://soundatlas.app",
+    "email": "support@soundatlas.app"
 }

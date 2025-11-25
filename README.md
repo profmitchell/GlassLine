@@ -1,59 +1,40 @@
-# OBS Plugin Template
+# SoundAtlas Library Manager (OBS macOS Plugin)
 
-## Introduction
+SoundAtlas Library Manager is an OBS Studio source plugin tailored for macOS. It wraps the PRD in `prd.md` into a concrete starting point so you can drop a glass-inspired audio visualizer straight into your scenes while keeping installation, signing, and future packaging aligned with Apple Silicon workflows.
 
-The plugin template is meant to be used as a starting point for OBS Studio plugin development. It includes:
+## What’s included
 
-* Boilerplate plugin source code
-* A CMake project file
-* GitHub Actions workflows and repository actions
+- **New source identity:** Project metadata is prefilled for SoundAtlas (name, display label, bundle ID, support contact).
+- **macOS focus:** Buildspec defaults to Apple Silicon-safe identifiers and leaves space for codesigning/notarization steps used by OBS’s macOS toolchain.
+- **Visualizer blueprint:** The PRD covers single- and multi-source audio capture, multiple visual modes (line, bars, circular), styling controls, and preset handling so you can continue implementing the rendering and DSP path inside this boilerplate.
 
-## Supported Build Environments
+## Working from the PRD
 
-| Platform  | Tool   |
-|-----------|--------|
-| Windows   | Visal Studio 17 2022 |
-| macOS     | XCode 16.0 |
-| Windows, macOS  | CMake 3.30.5 |
-| Ubuntu 24.04 | CMake 3.28.3 |
-| Ubuntu 24.04 | `ninja-build` |
-| Ubuntu 24.04 | `pkg-config`
-| Ubuntu 24.04 | `build-essential` |
+The full product requirements live in [`prd.md`](prd.md). Use it as your implementation checklist:
 
-## Quick Start
+- Add a **GlassLine Visualizer** source type that can bind to single or multiple OBS audio sources.
+- Implement the three visual families with presets (Ad Line Minimal, Bass-Heavy Bars, Circular Meter).
+- Keep UI strings approachable (e.g., Smoothness, Height, Detail, Bass Focus) and group them into Audio Source, Visual Type, Style, and Advanced sections.
+- Favor GPU-friendly rendering inside OBS’s abstraction layer and be resilient when audio sources disappear or go silent.
 
-An absolute bare-bones [Quick Start Guide](https://github.com/obsproject/obs-plugintemplate/wiki/Quick-Start-Guide) is available in the wiki.
+## Building on macOS (local)
 
-## Documentation
+1. Install OBS dependencies per the OBS plugin template guidance (CMake 3.28+, Xcode 16 for generators).
+2. Configure a build directory:
+   ```bash
+   cmake -S . -B build -D CMAKE_BUILD_TYPE=RelWithDebInfo
+   ```
+3. Build the plugin module:
+   ```bash
+   cmake --build build --config RelWithDebInfo
+   ```
+4. The resulting module will appear in the build output; package/sign according to your codesigning profile when you are ready to distribute.
 
-All documentation can be found in the [Plugin Template Wiki](https://github.com/obsproject/obs-plugintemplate/wiki).
+## Next implementation steps
 
-Suggested reading to get up and running:
+- Wire up OBS source registration for the GlassLine Visualizer and connect to OBS audio callbacks.
+- Implement FFT-based spectrum analysis with smoothing and peak handling.
+- Render line, bar, and circular variants using OBS’s graphics API with optional glow/double-draw for the glass aesthetic.
+- Persist presets to a JSON config (e.g., `glassline_presets.json`) in OBS’s plugin config directory.
 
-* [Getting started](https://github.com/obsproject/obs-plugintemplate/wiki/Getting-Started)
-* [Build system requirements](https://github.com/obsproject/obs-plugintemplate/wiki/Build-System-Requirements)
-* [Build system options](https://github.com/obsproject/obs-plugintemplate/wiki/CMake-Build-System-Options)
-
-## GitHub Actions & CI
-
-Default GitHub Actions workflows are available for the following repository actions:
-
-* `push`: Run for commits or tags pushed to `master` or `main` branches.
-* `pr-pull`: Run when a Pull Request has been pushed or synchronized.
-* `dispatch`: Run when triggered by the workflow dispatch in GitHub's user interface.
-* `build-project`: Builds the actual project and is triggered by other workflows.
-* `check-format`: Checks CMake and plugin source code formatting and is triggered by other workflows.
-
-The workflows make use of GitHub repository actions (contained in `.github/actions`) and build scripts (contained in `.github/scripts`) which are not needed for local development, but might need to be adjusted if additional/different steps are required to build the plugin.
-
-### Retrieving build artifacts
-
-Successful builds on GitHub Actions will produce build artifacts that can be downloaded for testing. These artifacts are commonly simple archives and will not contain package installers or installation programs.
-
-### Building a Release
-
-To create a release, an appropriately named tag needs to be pushed to the `main`/`master` branch using semantic versioning (e.g., `12.3.4`, `23.4.5-beta2`). A draft release will be created on the associated repository with generated installer packages or installation programs attached as release artifacts.
-
-## Signing and Notarizing on macOS
-
-Basic concepts of codesigning and notarization on macOS are explained in the correspodning [Wiki article](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS) which has a specific section for the [GitHub Actions setup](https://github.com/obsproject/obs-plugintemplate/wiki/Codesigning-On-macOS#setting-up-code-signing-for-github-actions).
+This repository now carries the SoundAtlas title and macOS-focused metadata so you can move directly into feature development without reworking the boilerplate.
