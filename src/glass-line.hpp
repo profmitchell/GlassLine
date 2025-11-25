@@ -10,9 +10,14 @@ struct GlassLineSource {
 
 	// Settings
 	std::string audio_source_name;
-	int mode; // 0: Line, 1: Bars, 2: Circular Line, 3: Circular Bars
+	int mode; // 0: Line, 1: Bars, 2: Circular Line, 3: Circular Bars, 4: Symmetric Bars, 5: Symmetric Waveform
 	uint32_t color;
+	uint32_t color_start; // Gradient start color
+	uint32_t color_end;   // Gradient end color
+	uint32_t glow_color;  // Glow/shadow color
+	float glow_strength;  // Glow intensity (0.0-1.0)
 	float thickness;
+	float line_width; // Line width for waveform modes
 	float smoothing;
 	float amp_scale; // Audio amplitude scaling
 	int bar_count;

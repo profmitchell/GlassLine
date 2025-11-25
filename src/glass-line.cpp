@@ -11,7 +11,12 @@
 #define S_SOURCE "source"
 #define S_MODE "mode"
 #define S_COLOR "color"
+#define S_COLOR_START "color_start"
+#define S_COLOR_END "color_end"
+#define S_GLOW_COLOR "glow_color"
+#define S_GLOW_STRENGTH "glow_strength"
 #define S_THICKNESS "thickness"
+#define S_LINE_WIDTH "line_width"
 #define S_SMOOTHING "smoothing"
 #define S_AMP_SCALE "amp_scale"
 #define S_BAR_COUNT "bar_count"
@@ -20,7 +25,12 @@
 #define T_SOURCE "Audio Source"
 #define T_MODE "Visual Mode"
 #define T_COLOR "Color"
+#define T_COLOR_START "Gradient Start Color"
+#define T_COLOR_END "Gradient End Color"
+#define T_GLOW_COLOR "Glow Color"
+#define T_GLOW_STRENGTH "Glow Strength"
 #define T_THICKNESS "Thickness"
+#define T_LINE_WIDTH "Line Width"
 #define T_SMOOTHING "Smoothing"
 #define T_AMP_SCALE "Amplitude Scale"
 #define T_BAR_COUNT "Bar Count"
@@ -39,7 +49,12 @@ GlassLineSource::GlassLineSource(obs_source_t *source) : source(source)
 	// Initialize defaults
 	mode = 0;
 	color = 0xFFFFFFFF;
+	color_start = 0xFFFFE7C1; // Light orange/cream
+	color_end = 0xFFB63814;   // Dark orange/red
+	glow_color = 0xFFFF7832;  // Orange glow
+	glow_strength = 0.5f;
 	thickness = 2.0f;
+	line_width = 4.0f;
 	smoothing = 0.5f;
 	amp_scale = 1.0f;
 	bar_count = 64;
@@ -85,7 +100,12 @@ void GlassLineSource::Update(obs_data_t *settings)
 
 	mode = (int)obs_data_get_int(settings, S_MODE);
 	color = (uint32_t)obs_data_get_int(settings, S_COLOR);
+	color_start = (uint32_t)obs_data_get_int(settings, S_COLOR_START);
+	color_end = (uint32_t)obs_data_get_int(settings, S_COLOR_END);
+	glow_color = (uint32_t)obs_data_get_int(settings, S_GLOW_COLOR);
+	glow_strength = (float)obs_data_get_double(settings, S_GLOW_STRENGTH);
 	thickness = (float)obs_data_get_double(settings, S_THICKNESS);
+	line_width = (float)obs_data_get_double(settings, S_LINE_WIDTH);
 	smoothing = (float)obs_data_get_double(settings, S_SMOOTHING);
 	amp_scale = (float)obs_data_get_double(settings, S_AMP_SCALE);
 	bar_count = (int)obs_data_get_int(settings, S_BAR_COUNT);
@@ -303,6 +323,191 @@ void GlassLineSource::Render(gs_effect_t *effect)
 			}
 
 			gs_render_stop(GS_TRIS);
+
+		} else if (mode == 4) { // Symmetric Bars (horizontal from center)
+			int count = bar_count;
+			if (count > (int)num_bins)
+				count = (int)num_bins;
+
+			float center_x = width / 2.0f;
+			float bar_height = height * 0.4f; // Maximum bar height
+			float bar_width = bar_height / count;
+			float gap = bar_width * 0.1f;
+			float draw_width = bar_width - gap;
+
+			size_t bins_per_bar = num_bins / count;
+			if (bins_per_bar == 0)
+				bins_per_bar = 1;
+
+			// Helper to interpolate color
+			auto lerp_color = [](uint32_t c1, uint32_t c2, float t) -> uint32_t {
+				uint8_t a1 = (c1 >> 24) & 0xFF, r1 = (c1 >> 16) & 0xFF;
+				uint8_t g1 = (c1 >> 8) & 0xFF, b1 = c1 & 0xFF;
+				uint8_t a2 = (c2 >> 24) & 0xFF, r2 = (c2 >> 16) & 0xFF;
+				uint8_t g2 = (c2 >> 8) & 0xFF, b2 = c2 & 0xFF;
+
+				uint8_t a = (uint8_t)(a1 + t * (a2 - a1));
+				uint8_t r = (uint8_t)(r1 + t * (r2 - r1));
+				uint8_t g = (uint8_t)(g1 + t * (g2 - g1));
+				uint8_t b = (uint8_t)(b1 + t * (b2 - b1));
+
+				return (a << 24) | (r << 16) | (g << 8) | b;
+			};
+
+			// Render glow first (if enabled)
+			if (glow_strength > 0.01f) {
+				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), glow_color);
+				gs_render_start(true);
+
+				for (int i = 0; i < count; i++) {
+					float sum = 0.0f;
+					for (size_t j = 0; j < bins_per_bar; j++) {
+						size_t bin_idx = start_bin + i * bins_per_bar + j;
+						if (bin_idx < smoothed_magnitudes.size())
+							sum += smoothed_magnitudes[bin_idx];
+					}
+					float mag = (sum / bins_per_bar) * amp_scale;
+					float bar_length = mag * bar_height * (1.0f + glow_strength * 0.5f);
+
+					float y = height / 2.0f - (count / 2.0f) * bar_width + i * bar_width;
+
+					// Left bar (from center)
+					float x1_left = center_x - bar_length;
+					float x2_left = center_x;
+
+					gs_vertex2f(x1_left, y);
+					gs_vertex2f(x2_left, y);
+					gs_vertex2f(x2_left, y + draw_width);
+
+					gs_vertex2f(x1_left, y);
+					gs_vertex2f(x2_left, y + draw_width);
+					gs_vertex2f(x1_left, y + draw_width);
+
+					// Right bar (from center)
+					float x1_right = center_x;
+					float x2_right = center_x + bar_length;
+
+					gs_vertex2f(x1_right, y);
+					gs_vertex2f(x2_right, y);
+					gs_vertex2f(x2_right, y + draw_width);
+
+					gs_vertex2f(x1_right, y);
+					gs_vertex2f(x2_right, y + draw_width);
+					gs_vertex2f(x1_right, y + draw_width);
+				}
+
+				gs_render_stop(GS_TRIS);
+			}
+
+			// Render main bars with gradient
+			gs_render_start(true);
+
+			for (int i = 0; i < count; i++) {
+				float sum = 0.0f;
+				for (size_t j = 0; j < bins_per_bar; j++) {
+					size_t bin_idx = start_bin + i * bins_per_bar + j;
+					if (bin_idx < smoothed_magnitudes.size())
+						sum += smoothed_magnitudes[bin_idx];
+				}
+				float mag = (sum / bins_per_bar) * amp_scale;
+				float bar_length = mag * bar_height;
+
+				float y = height / 2.0f - (count / 2.0f) * bar_width + i * bar_width;
+				float t = (float)i / (float)count; // Gradient position
+				uint32_t bar_color = lerp_color(color_start, color_end, t);
+
+				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), bar_color);
+
+				// Need to stop and restart for each color change
+				if (i > 0) {
+					gs_render_stop(GS_TRIS);
+					gs_render_start(true);
+				}
+
+				// Left bar
+				float x1_left = center_x - bar_length;
+				float x2_left = center_x;
+
+				gs_vertex2f(x1_left, y);
+				gs_vertex2f(x2_left, y);
+				gs_vertex2f(x2_left, y + draw_width);
+
+				gs_vertex2f(x1_left, y);
+				gs_vertex2f(x2_left, y + draw_width);
+				gs_vertex2f(x1_left, y + draw_width);
+
+				// Right bar
+				float x1_right = center_x;
+				float x2_right = center_x + bar_length;
+
+				gs_vertex2f(x1_right, y);
+				gs_vertex2f(x2_right, y);
+				gs_vertex2f(x2_right, y + draw_width);
+
+				gs_vertex2f(x1_right, y);
+				gs_vertex2f(x2_right, y + draw_width);
+				gs_vertex2f(x1_right, y + draw_width);
+			}
+
+			gs_render_stop(GS_TRIS);
+
+		} else if (mode == 5) { // Symmetric Waveform (horizontal from center)
+			float center_y = height / 2.0f;
+			float max_amplitude = height * 0.3f;
+
+			// Draw glow layer first
+			if (glow_strength > 0.01f) {
+				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), glow_color);
+
+				// Top half glow
+				gs_render_start(true);
+				for (size_t i = 0; i < num_bins; i++) {
+					float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
+
+					float x = (float)i / (float)num_bins * width;
+					float y_top = center_y - amplitude;
+					gs_vertex2f(x, y_top);
+				}
+				gs_render_stop(GS_LINESTRIP);
+
+				// Bottom half glow
+				gs_render_start(true);
+				for (size_t i = 0; i < num_bins; i++) {
+					float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
+
+					float x = (float)i / (float)num_bins * width;
+					float y_bottom = center_y + amplitude;
+					gs_vertex2f(x, y_bottom);
+				}
+				gs_render_stop(GS_LINESTRIP);
+			}
+
+			// Draw main waveform (use color_start for now, gradient is too expensive)
+			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), color_start);
+
+			// Top half
+			gs_render_start(true);
+			for (size_t i = 0; i < num_bins; i++) {
+				float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+				float amplitude = mag * max_amplitude;
+				float x = (float)i / (float)num_bins * width;
+				float y_top = center_y - amplitude;
+				gs_vertex2f(x, y_top);
+			}
+			gs_render_stop(GS_LINESTRIP);
+
+			// Bottom half (mirrored)
+			gs_render_start(true);
+			for (size_t i = 0; i < num_bins; i++) {
+				float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+				float amplitude = mag * max_amplitude;
+				float x = (float)i / (float)num_bins * width;
+				float y_bottom = center_y + amplitude;
+				gs_vertex2f(x, y_bottom);
+			}
+			gs_render_stop(GS_LINESTRIP);
 		}
 	}
 }
@@ -382,9 +587,16 @@ static obs_properties_t *glass_line_get_properties(void *data)
 	obs_property_list_add_int(mode_list, "Bars", 1);
 	obs_property_list_add_int(mode_list, "Circular Line", 2);
 	obs_property_list_add_int(mode_list, "Circular Bars", 3);
+	obs_property_list_add_int(mode_list, "Symmetric Bars", 4);
+	obs_property_list_add_int(mode_list, "Symmetric Waveform", 5);
 
 	obs_properties_add_color(props, S_COLOR, T_COLOR);
+	obs_properties_add_color(props, S_COLOR_START, T_COLOR_START);
+	obs_properties_add_color(props, S_COLOR_END, T_COLOR_END);
+	obs_properties_add_color(props, S_GLOW_COLOR, T_GLOW_COLOR);
+	obs_properties_add_float_slider(props, S_GLOW_STRENGTH, T_GLOW_STRENGTH, 0.0f, 1.0f, 0.01f);
 	obs_properties_add_float(props, S_THICKNESS, T_THICKNESS, 1.0f, 20.0f, 0.5f);
+	obs_properties_add_float(props, S_LINE_WIDTH, T_LINE_WIDTH, 1.0f, 20.0f, 0.5f);
 	obs_properties_add_float(props, S_SMOOTHING, T_SMOOTHING, 0.0f, 1.0f, 0.01f);
 	obs_properties_add_float(props, S_AMP_SCALE, T_AMP_SCALE, 0.1f, 100.0f, 0.1f);
 	obs_properties_add_int(props, S_BAR_COUNT, T_BAR_COUNT, 4, 512, 1);
