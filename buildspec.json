@@ -33,13 +33,13 @@
     },
     "platformConfig": {
         "macos": {
-            "bundleId": "com.soundatlas.librarymanager"
+            "bundleId": "com.cohenconcepts.glassline"
         }
     },
-    "name": "soundatlas-library-manager",
-    "displayName": "SoundAtlas Library Manager",
+    "name": "glass-line",
+    "displayName": "GlassLine Visualizer",
     "version": "1.0.0",
-    "author": "SoundAtlas Team",
-    "website": "https://soundatlas.app",
-    "email": "support@soundatlas.app"
+    "author": "Cohen Concepts",
+    "website": "https://cohenconcepts.com",
+    "email": "support@cohenconcepts.com"
 }
