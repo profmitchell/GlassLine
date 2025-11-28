@@ -19,8 +19,6 @@
 #define S_LINE_WIDTH "line_width"
 #define S_SMOOTHING "smoothing"
 #define S_AMP_SCALE "amp_scale"
-#define S_BAR_COUNT "bar_count"
-#define S_RADIUS "radius"
 
 #define T_SOURCE "Audio Source"
 #define T_MODE "Visual Mode"
@@ -33,8 +31,6 @@
 #define T_LINE_WIDTH "Line Width"
 #define T_SMOOTHING "Smoothing"
 #define T_AMP_SCALE "Amplitude Scale"
-#define T_BAR_COUNT "Bar Count"
-#define T_RADIUS "Radius"
 
 static void audio_capture_callback(void *param, obs_source_t *source, const struct audio_data *audio_data, bool muted)
 {
@@ -57,8 +53,6 @@ GlassLineSource::GlassLineSource(obs_source_t *source) : source(source)
 	line_width = 4.0f;
 	smoothing = 0.5f;
 	amp_scale = 1.0f;
-	bar_count = 64;
-	radius = 200.0f;
 
 	parent_source = source;
 
@@ -108,8 +102,6 @@ void GlassLineSource::Update(obs_data_t *settings)
 	line_width = (float)obs_data_get_double(settings, S_LINE_WIDTH);
 	smoothing = (float)obs_data_get_double(settings, S_SMOOTHING);
 	amp_scale = (float)obs_data_get_double(settings, S_AMP_SCALE);
-	bar_count = (int)obs_data_get_int(settings, S_BAR_COUNT);
-	radius = (float)obs_data_get_double(settings, S_RADIUS);
 }
 
 void GlassLineSource::AudioCallback(const struct audio_data *data)
@@ -369,52 +361,10 @@ void GlassLineSource::Render(gs_effect_t *effect)
 			}
 			gs_render_stop(GS_LINESTRIP);
 
-		} else if (mode == 2) { // Circular Waveform
-			float center_x = width / 2.0f;
+		} else if (mode == 2) { // Mirrored Bars (Vertical bars from center)
 			float center_y = height / 2.0f;
-			float base_radius = radius;
-
-			// Draw glow first
-			if (glow_strength > 0.01f) {
-				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(glow_color));
-				gs_render_start(true);
-
-				for (size_t i = 0; i <= num_bins; i++) {
-					size_t idx = (i == num_bins) ? 0 : i;
-					float mag = smoothed_magnitudes[start_bin + idx] * amp_scale;
-					float r = base_radius +
-						  (mag * base_radius * 0.5f * (1.0f + glow_strength * 0.5f));
-
-					float angle = (float)i / (float)num_bins * 2.0f * (float)M_PI;
-					float x = center_x + r * cosf(angle);
-					float y = center_y + r * sinf(angle);
-
-					gs_vertex2f(x, y);
-				}
-				gs_render_stop(GS_LINESTRIP);
-			}
-
-			// Draw main waveform
-			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
-			gs_render_start(true);
-
-			for (size_t i = 0; i <= num_bins; i++) {
-				size_t idx = (i == num_bins) ? 0 : i;
-				float mag = smoothed_magnitudes[start_bin + idx] * amp_scale;
-				float r = base_radius + (mag * base_radius * 0.5f);
-
-				float angle = (float)i / (float)num_bins * 2.0f * (float)M_PI;
-				float x = center_x + r * cosf(angle);
-				float y = center_y + r * sinf(angle);
-
-				gs_vertex2f(x, y);
-			}
-			gs_render_stop(GS_LINESTRIP);
-
-		} else if (mode == 3) { // Radial Bars
-			float center_x = width / 2.0f;
-			float center_y = height / 2.0f;
-			int count = bar_count;
+			float max_amplitude = height * 0.4f;
+			int count = 64; // Fixed bar count for now, or could reuse bar_count if we kept it
 			if (count > (int)num_bins)
 				count = (int)num_bins;
 
@@ -422,11 +372,12 @@ void GlassLineSource::Render(gs_effect_t *effect)
 			if (bins_per_bar == 0)
 				bins_per_bar = 1;
 
-			// Draw glow first
+			float bar_width = width / count * 0.8f;
+
+			// Draw glow
 			if (glow_strength > 0.01f) {
 				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(glow_color));
 				gs_render_start(true);
-
 				for (int i = 0; i < count; i++) {
 					float sum = 0.0f;
 					for (size_t j = 0; j < bins_per_bar; j++) {
@@ -435,22 +386,22 @@ void GlassLineSource::Render(gs_effect_t *effect)
 							sum += smoothed_magnitudes[bin_idx];
 					}
 					float mag = (sum / bins_per_bar) * amp_scale;
-					float bar_length = mag * (radius * 0.8f) * (1.0f + glow_strength * 0.5f);
+					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
 
-					float angle = (float)i / (float)count * 2.0f * (float)M_PI;
+					float x = (float)i / (float)count * width + (width / count * 0.1f);
 
-					// Draw line from center outward
-					gs_vertex2f(center_x, center_y);
-					gs_vertex2f(center_x + bar_length * cosf(angle),
-						    center_y + bar_length * sinf(angle));
+					// Top bar (using TRISTRIP: TL, BL, TR, BR)
+					gs_vertex2f(x, center_y);                         // TL
+					gs_vertex2f(x, center_y - amplitude);             // BL
+					gs_vertex2f(x + bar_width, center_y);             // TR
+					gs_vertex2f(x + bar_width, center_y - amplitude); // BR
 				}
-				gs_render_stop(GS_LINES);
+				gs_render_stop(GS_TRISTRIP);
 			}
 
 			// Draw main bars
 			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
 			gs_render_start(true);
-
 			for (int i = 0; i < count; i++) {
 				float sum = 0.0f;
 				for (size_t j = 0; j < bins_per_bar; j++) {
@@ -459,15 +410,74 @@ void GlassLineSource::Render(gs_effect_t *effect)
 						sum += smoothed_magnitudes[bin_idx];
 				}
 				float mag = (sum / bins_per_bar) * amp_scale;
-				float bar_length = mag * (radius * 0.8f);
+				float amplitude = mag * max_amplitude;
 
-				float angle = (float)i / (float)count * 2.0f * (float)M_PI;
+				float x = (float)i / (float)count * width + (width / count * 0.1f);
 
-				// Draw line from center outward
-				gs_vertex2f(center_x, center_y);
-				gs_vertex2f(center_x + bar_length * cosf(angle), center_y + bar_length * sinf(angle));
+				// Top bar (TRISTRIP)
+				gs_vertex2f(x, center_y);
+				gs_vertex2f(x, center_y - amplitude);
+				gs_vertex2f(x + bar_width, center_y);
+				gs_vertex2f(x + bar_width, center_y - amplitude);
+
+				// Bottom bar (TRISTRIP)
+				gs_vertex2f(x, center_y);
+				gs_vertex2f(x, center_y + amplitude);
+				gs_vertex2f(x + bar_width, center_y);
+				gs_vertex2f(x + bar_width, center_y + amplitude);
 			}
-			gs_render_stop(GS_LINES);
+			gs_render_stop(GS_TRISTRIP);
+
+		} else if (mode == 3) { // Filled Mirror (Solid waveform mirrored)
+			float center_y = height / 2.0f;
+			float max_amplitude = height * 0.4f;
+
+			// Draw glow
+			if (glow_strength > 0.01f) {
+				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(glow_color));
+
+				// Top half
+				gs_render_start(true);
+				gs_vertex2f(0.0f, center_y); // Start at center-left
+				for (size_t i = 0; i < num_bins; i++) {
+					float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
+					float x = (float)i / (float)num_bins * width;
+					gs_vertex2f(x, center_y - amplitude);
+				}
+				gs_vertex2f(width, center_y); // End at center-right
+				gs_render_stop(
+					GS_LINESTRIP); // Using linestrip for outline, or could use triangle strip for fill
+
+				// Bottom half
+				gs_render_start(true);
+				gs_vertex2f(0.0f, center_y);
+				for (size_t i = 0; i < num_bins; i++) {
+					float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
+					float x = (float)i / (float)num_bins * width;
+					gs_vertex2f(x, center_y + amplitude);
+				}
+				gs_vertex2f(width, center_y);
+				gs_render_stop(GS_LINESTRIP);
+			}
+
+			// Draw main filled shape
+			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
+
+			// We use TRIANGLE_STRIP to create a filled effect from the center line
+			gs_render_start(true);
+			for (size_t i = 0; i < num_bins; i++) {
+				float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+				float amplitude = mag * max_amplitude;
+				float x = (float)i / (float)num_bins * width;
+
+				// Top point
+				gs_vertex2f(x, center_y - amplitude);
+				// Bottom point
+				gs_vertex2f(x, center_y + amplitude);
+			}
+			gs_render_stop(GS_TRISTRIP);
 		}
 	}
 }
@@ -517,6 +527,20 @@ static uint32_t glass_line_get_height(void *data)
 	return 1080; // Default height
 }
 
+static void glass_line_get_defaults(obs_data_t *settings)
+{
+	obs_data_set_default_int(settings, S_MODE, 0);
+	obs_data_set_default_int(settings, S_COLOR, 0xFFFFFFFF);
+	obs_data_set_default_int(settings, S_COLOR_START, 0xFFFFE7C1);
+	obs_data_set_default_int(settings, S_COLOR_END, 0xFFB63814);
+	obs_data_set_default_int(settings, S_GLOW_COLOR, 0xFFFF7832);
+	obs_data_set_default_double(settings, S_GLOW_STRENGTH, 0.5);
+	obs_data_set_default_double(settings, S_THICKNESS, 2.0);
+	obs_data_set_default_double(settings, S_LINE_WIDTH, 4.0);
+	obs_data_set_default_double(settings, S_SMOOTHING, 0.5);
+	obs_data_set_default_double(settings, S_AMP_SCALE, 1.0);
+}
+
 static obs_properties_t *glass_line_get_properties(void *data)
 {
 	UNUSED_PARAMETER(data);
@@ -545,8 +569,8 @@ static obs_properties_t *glass_line_get_properties(void *data)
 		obs_properties_add_list(props, S_MODE, T_MODE, OBS_COMBO_TYPE_LIST, OBS_COMBO_FORMAT_INT);
 	obs_property_list_add_int(mode_list, "Centered Waveform", 0);
 	obs_property_list_add_int(mode_list, "Symmetric Waveform", 1);
-	obs_property_list_add_int(mode_list, "Circular Waveform", 2);
-	obs_property_list_add_int(mode_list, "Radial Bars", 3);
+	obs_property_list_add_int(mode_list, "Mirrored Bars", 2);
+	obs_property_list_add_int(mode_list, "Filled Mirror", 3);
 
 	obs_properties_add_color(props, S_COLOR, T_COLOR);
 	obs_properties_add_color(props, S_COLOR_START, T_COLOR_START);
@@ -557,8 +581,6 @@ static obs_properties_t *glass_line_get_properties(void *data)
 	obs_properties_add_float(props, S_LINE_WIDTH, T_LINE_WIDTH, 1.0f, 20.0f, 0.5f);
 	obs_properties_add_float(props, S_SMOOTHING, T_SMOOTHING, 0.0f, 1.0f, 0.01f);
 	obs_properties_add_float(props, S_AMP_SCALE, T_AMP_SCALE, 0.1f, 100.0f, 0.1f);
-	obs_properties_add_int(props, S_BAR_COUNT, T_BAR_COUNT, 4, 512, 1);
-	obs_properties_add_float(props, S_RADIUS, T_RADIUS, 10.0f, 1000.0f, 1.0f);
 
 	return props;
 }
@@ -572,6 +594,7 @@ struct obs_source_info glass_line_source = {
 	.destroy = glass_line_destroy,
 	.get_width = glass_line_get_width,
 	.get_height = glass_line_get_height,
+	.get_defaults = glass_line_get_defaults,
 	.update = glass_line_update,
 	.video_render = glass_line_video_render,
 	.get_properties = glass_line_get_properties,
