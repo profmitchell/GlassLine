@@ -489,25 +489,40 @@ void GlassLineSource::Render(gs_effect_t *effect)
 				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(glow_color));
 				gs_render_start(true);
 
+				bool first = true;
+				float last_x = 0.0f, last_y = 0.0f;
+
 				// Left side
 				for (size_t i = 0; i < num_bins / 2; i += 2) {
 					float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
 					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
 					float x = center_x - ((float)i / (float)(num_bins / 2)) * (center_x);
 
-					// Top
+					// Top dot
 					float y1 = height / 2.0f - amplitude;
+					if (!first) {
+						gs_vertex2f(last_x, last_y);
+						gs_vertex2f(x - dot_size, y1 - dot_size);
+					}
 					gs_vertex2f(x - dot_size, y1 - dot_size);
 					gs_vertex2f(x - dot_size, y1 + dot_size);
 					gs_vertex2f(x + dot_size, y1 - dot_size);
 					gs_vertex2f(x + dot_size, y1 + dot_size);
+					last_x = x + dot_size;
+					last_y = y1 + dot_size;
+					first = false;
 
-					// Bottom
+					// Bottom dot
 					float y2 = height / 2.0f + amplitude;
+					gs_vertex2f(last_x, last_y);
+					gs_vertex2f(x - dot_size, y2 - dot_size);
+
 					gs_vertex2f(x - dot_size, y2 - dot_size);
 					gs_vertex2f(x - dot_size, y2 + dot_size);
 					gs_vertex2f(x + dot_size, y2 - dot_size);
 					gs_vertex2f(x + dot_size, y2 + dot_size);
+					last_x = x + dot_size;
+					last_y = y2 + dot_size;
 				}
 
 				// Right side
@@ -516,19 +531,31 @@ void GlassLineSource::Render(gs_effect_t *effect)
 					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
 					float x = center_x + ((float)i / (float)(num_bins / 2)) * (center_x);
 
-					// Top
+					// Top dot
 					float y1 = height / 2.0f - amplitude;
+					if (!first) {
+						gs_vertex2f(last_x, last_y);
+						gs_vertex2f(x - dot_size, y1 - dot_size);
+					}
 					gs_vertex2f(x - dot_size, y1 - dot_size);
 					gs_vertex2f(x - dot_size, y1 + dot_size);
 					gs_vertex2f(x + dot_size, y1 - dot_size);
 					gs_vertex2f(x + dot_size, y1 + dot_size);
+					last_x = x + dot_size;
+					last_y = y1 + dot_size;
+					first = false;
 
-					// Bottom
+					// Bottom dot
 					float y2 = height / 2.0f + amplitude;
+					gs_vertex2f(last_x, last_y);
+					gs_vertex2f(x - dot_size, y2 - dot_size);
+
 					gs_vertex2f(x - dot_size, y2 - dot_size);
 					gs_vertex2f(x - dot_size, y2 + dot_size);
 					gs_vertex2f(x + dot_size, y2 - dot_size);
 					gs_vertex2f(x + dot_size, y2 + dot_size);
+					last_x = x + dot_size;
+					last_y = y2 + dot_size;
 				}
 				gs_render_stop(GS_TRISTRIP);
 			}
@@ -536,6 +563,9 @@ void GlassLineSource::Render(gs_effect_t *effect)
 			// Draw main dots
 			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
 			gs_render_start(true);
+
+			bool first = true;
+			float last_x = 0.0f, last_y = 0.0f;
 
 			// Left side
 			for (size_t i = 0; i < num_bins / 2; i += 2) {
@@ -545,17 +575,29 @@ void GlassLineSource::Render(gs_effect_t *effect)
 
 				// Top
 				float y1 = height / 2.0f - amplitude;
+				if (!first) {
+					gs_vertex2f(last_x, last_y);
+					gs_vertex2f(x - dot_size / 2, y1 - dot_size / 2);
+				}
 				gs_vertex2f(x - dot_size / 2, y1 - dot_size / 2);
 				gs_vertex2f(x - dot_size / 2, y1 + dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y1 - dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y1 + dot_size / 2);
+				last_x = x + dot_size / 2;
+				last_y = y1 + dot_size / 2;
+				first = false;
 
 				// Bottom
 				float y2 = height / 2.0f + amplitude;
+				gs_vertex2f(last_x, last_y);
+				gs_vertex2f(x - dot_size / 2, y2 - dot_size / 2);
+
 				gs_vertex2f(x - dot_size / 2, y2 - dot_size / 2);
 				gs_vertex2f(x - dot_size / 2, y2 + dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y2 - dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y2 + dot_size / 2);
+				last_x = x + dot_size / 2;
+				last_y = y2 + dot_size / 2;
 			}
 
 			// Right side
@@ -566,17 +608,29 @@ void GlassLineSource::Render(gs_effect_t *effect)
 
 				// Top
 				float y1 = height / 2.0f - amplitude;
+				if (!first) {
+					gs_vertex2f(last_x, last_y);
+					gs_vertex2f(x - dot_size / 2, y1 - dot_size / 2);
+				}
 				gs_vertex2f(x - dot_size / 2, y1 - dot_size / 2);
 				gs_vertex2f(x - dot_size / 2, y1 + dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y1 - dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y1 + dot_size / 2);
+				last_x = x + dot_size / 2;
+				last_y = y1 + dot_size / 2;
+				first = false;
 
 				// Bottom
 				float y2 = height / 2.0f + amplitude;
+				gs_vertex2f(last_x, last_y);
+				gs_vertex2f(x - dot_size / 2, y2 - dot_size / 2);
+
 				gs_vertex2f(x - dot_size / 2, y2 - dot_size / 2);
 				gs_vertex2f(x - dot_size / 2, y2 + dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y2 - dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y2 + dot_size / 2);
+				last_x = x + dot_size / 2;
+				last_y = y2 + dot_size / 2;
 			}
 			gs_render_stop(GS_TRISTRIP);
 
@@ -628,31 +682,49 @@ void GlassLineSource::Render(gs_effect_t *effect)
 			if (glow_strength > 0.01f) {
 				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(glow_color));
 				gs_render_start(true);
-				for (size_t i = 0; i < num_bins; i += 2) { // Skip every other bin for dots
+				bool first = true;
+				float last_x = 0.0f, last_y = 0.0f;
+
+				for (size_t i = 0; i < num_bins; i += 2) {
 					float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
 					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
 					float x = (float)i / (float)num_bins * width;
 
 					// Top dot
 					float y1 = center_y - amplitude;
+					if (!first) {
+						gs_vertex2f(last_x, last_y);
+						gs_vertex2f(x - dot_size, y1 - dot_size);
+					}
 					gs_vertex2f(x - dot_size, y1 - dot_size);
 					gs_vertex2f(x - dot_size, y1 + dot_size);
 					gs_vertex2f(x + dot_size, y1 - dot_size);
 					gs_vertex2f(x + dot_size, y1 + dot_size);
+					last_x = x + dot_size;
+					last_y = y1 + dot_size;
+					first = false;
 
 					// Bottom dot
 					float y2 = center_y + amplitude;
+					gs_vertex2f(last_x, last_y);
+					gs_vertex2f(x - dot_size, y2 - dot_size);
+
 					gs_vertex2f(x - dot_size, y2 - dot_size);
 					gs_vertex2f(x - dot_size, y2 + dot_size);
 					gs_vertex2f(x + dot_size, y2 - dot_size);
 					gs_vertex2f(x + dot_size, y2 + dot_size);
+					last_x = x + dot_size;
+					last_y = y2 + dot_size;
 				}
-				gs_render_stop(GS_TRISTRIP); // Using TRISTRIP for dots
+				gs_render_stop(GS_TRISTRIP);
 			}
 
 			// Draw main dots
 			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
 			gs_render_start(true);
+			bool first = true;
+			float last_x = 0.0f, last_y = 0.0f;
+
 			for (size_t i = 0; i < num_bins; i += 2) {
 				float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
 				float amplitude = mag * max_amplitude;
@@ -660,17 +732,29 @@ void GlassLineSource::Render(gs_effect_t *effect)
 
 				// Top dot
 				float y1 = center_y - amplitude;
+				if (!first) {
+					gs_vertex2f(last_x, last_y);
+					gs_vertex2f(x - dot_size / 2, y1 - dot_size / 2);
+				}
 				gs_vertex2f(x - dot_size / 2, y1 - dot_size / 2);
 				gs_vertex2f(x - dot_size / 2, y1 + dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y1 - dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y1 + dot_size / 2);
+				last_x = x + dot_size / 2;
+				last_y = y1 + dot_size / 2;
+				first = false;
 
 				// Bottom dot
 				float y2 = center_y + amplitude;
+				gs_vertex2f(last_x, last_y);
+				gs_vertex2f(x - dot_size / 2, y2 - dot_size / 2);
+
 				gs_vertex2f(x - dot_size / 2, y2 - dot_size / 2);
 				gs_vertex2f(x - dot_size / 2, y2 + dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y2 - dot_size / 2);
 				gs_vertex2f(x + dot_size / 2, y2 + dot_size / 2);
+				last_x = x + dot_size / 2;
+				last_y = y2 + dot_size / 2;
 			}
 			gs_render_stop(GS_TRISTRIP);
 		} else if (mode == 7) { // DNA Wave (Intertwined dots)
@@ -741,6 +825,62 @@ void GlassLineSource::Render(gs_effect_t *effect)
 					gs_vertex2f(x + bar_width, y);
 					gs_vertex2f(x + bar_width, y + block_height);
 				}
+			}
+			gs_render_stop(GS_TRISTRIP);
+		} else if (mode == 9) { // Circular Dots
+			float center_x = width / 2.0f;
+			float center_y = height / 2.0f;
+			float base_radius = (width < height ? width : height) * 0.3f;
+			float max_amp = base_radius * 0.5f;
+			float dot_size = thickness * 2.0f;
+
+			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
+			gs_render_start(true);
+			bool first = true;
+			float last_x = 0.0f, last_y = 0.0f;
+
+			for (size_t i = 0; i < num_bins; i += 2) {
+				float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+				float amplitude = mag * max_amp;
+				float angle = (float)i / (float)num_bins * 2.0f * (float)M_PI;
+
+				float r = base_radius + amplitude;
+				float x = center_x + cosf(angle) * r;
+				float y = center_y + sinf(angle) * r;
+
+				if (!first) {
+					gs_vertex2f(last_x, last_y);
+					gs_vertex2f(x - dot_size / 2, y - dot_size / 2);
+				}
+				gs_vertex2f(x - dot_size / 2, y - dot_size / 2);
+				gs_vertex2f(x + dot_size / 2, y - dot_size / 2);
+				gs_vertex2f(x - dot_size / 2, y + dot_size / 2);
+				gs_vertex2f(x + dot_size / 2, y + dot_size / 2);
+				last_x = x + dot_size / 2;
+				last_y = y + dot_size / 2;
+				first = false;
+			}
+			gs_render_stop(GS_TRISTRIP);
+
+		} else if (mode == 10) { // Spectrum Bars (Bottom up)
+			float max_height = height * 0.8f;
+			float bar_width = width / num_bins * 0.8f;
+			if (bar_width < 1.0f)
+				bar_width = 1.0f;
+
+			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
+			gs_render_start(true);
+
+			for (size_t i = 0; i < num_bins; i++) {
+				float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+				float h = mag * max_height;
+				float x = (float)i / (float)num_bins * width;
+				float y = height;
+
+				gs_vertex2f(x, y - h);
+				gs_vertex2f(x, y);
+				gs_vertex2f(x + bar_width, y - h);
+				gs_vertex2f(x + bar_width, y);
 			}
 			gs_render_stop(GS_TRISTRIP);
 		}
@@ -841,6 +981,8 @@ static obs_properties_t *glass_line_get_properties(void *data)
 	obs_property_list_add_int(mode_list, "Symetric Dots", 6);
 	obs_property_list_add_int(mode_list, "DNA Wave", 7);
 	obs_property_list_add_int(mode_list, "Pixel Bars", 8);
+	obs_property_list_add_int(mode_list, "Circular Dots", 9);
+	obs_property_list_add_int(mode_list, "Spectrum Bars", 10);
 
 	obs_properties_add_color(props, S_COLOR, T_COLOR);
 	obs_properties_add_color(props, S_COLOR_START, T_COLOR_START);

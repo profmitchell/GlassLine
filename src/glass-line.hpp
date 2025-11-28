@@ -10,7 +10,7 @@ struct GlassLineSource {
 
 	// Settings
 	std::string audio_source_name;
-	int mode; // 0: Centered Waveform, 1: Symmetric Waveform, 2: Mirrored Bars, 3: Filled Mirror, 4: Centered Dots, 5: Multi-Wave, 6: Symetric Dots, 7: DNA Wave, 8: Pixel Bars
+	int mode; // 0: Centered Waveform, 1: Symmetric Waveform, 2: Mirrored Bars, 3: Filled Mirror, 4: Centered Dots, 5: Multi-Wave, 6: Symetric Dots, 7: DNA Wave, 8: Pixel Bars, 9: Circular Dots, 10: Spectrum Bars
 	uint32_t color;
 	uint32_t color_start; // Gradient start color
 	uint32_t color_end;   // Gradient end color
