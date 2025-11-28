@@ -478,6 +478,138 @@ void GlassLineSource::Render(gs_effect_t *effect)
 				gs_vertex2f(x, center_y + amplitude);
 			}
 			gs_render_stop(GS_TRISTRIP);
+		} else if (mode == 4) { // Pulse Line (Vertical line pulsing with volume)
+			float center_x = width / 2.0f;
+			float center_y = height / 2.0f;
+
+			// Calculate average volume
+			float sum = 0.0f;
+			for (size_t i = 0; i < num_bins; i++) {
+				sum += smoothed_magnitudes[start_bin + i];
+			}
+			float avg_vol = (sum / num_bins) * amp_scale;
+
+			float current_height = height * 0.8f * (0.2f + avg_vol);
+			if (current_height > height)
+				current_height = height;
+
+			float current_width = thickness * (1.0f + avg_vol * 2.0f);
+
+			// Draw glow
+			if (glow_strength > 0.01f) {
+				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(glow_color));
+				float glow_w = current_width * (1.0f + glow_strength * 4.0f);
+
+				gs_render_start(true);
+				gs_vertex2f(center_x - glow_w / 2, center_y - current_height / 2);
+				gs_vertex2f(center_x - glow_w / 2, center_y + current_height / 2);
+				gs_vertex2f(center_x + glow_w / 2, center_y - current_height / 2);
+				gs_vertex2f(center_x + glow_w / 2, center_y + current_height / 2);
+				gs_render_stop(GS_TRISTRIP);
+			}
+
+			// Draw main line
+			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
+			gs_render_start(true);
+			gs_vertex2f(center_x - current_width / 2, center_y - current_height / 2);
+			gs_vertex2f(center_x - current_width / 2, center_y + current_height / 2);
+			gs_vertex2f(center_x + current_width / 2, center_y - current_height / 2);
+			gs_vertex2f(center_x + current_width / 2, center_y + current_height / 2);
+			gs_render_stop(GS_TRISTRIP);
+
+		} else if (mode == 5) { // Multi-Wave (3 overlapping waveforms)
+			float center_y = height / 2.0f;
+			float max_amplitude = height * 0.3f;
+
+			// Helper to draw one wave
+			auto draw_wave = [&](uint32_t col, float scale_mod, float y_offset) {
+				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(col));
+
+				// Top half
+				gs_render_start(true);
+				for (size_t i = 0; i < num_bins; i++) {
+					float mag = smoothed_magnitudes[start_bin + i] * amp_scale * scale_mod;
+					float amplitude = mag * max_amplitude;
+					float x = (float)i / (float)num_bins * width;
+					gs_vertex2f(x, center_y + y_offset - amplitude);
+				}
+				gs_render_stop(GS_LINESTRIP);
+
+				// Bottom half
+				gs_render_start(true);
+				for (size_t i = 0; i < num_bins; i++) {
+					float mag = smoothed_magnitudes[start_bin + i] * amp_scale * scale_mod;
+					float amplitude = mag * max_amplitude;
+					float x = (float)i / (float)num_bins * width;
+					gs_vertex2f(x, center_y + y_offset + amplitude);
+				}
+				gs_render_stop(GS_LINESTRIP);
+			};
+
+			// Draw 3 waves with offsets
+			// Wave 1: Glow color, slightly larger, offset up
+			draw_wave(glow_color, 1.1f, -5.0f);
+
+			// Wave 2: End color, slightly smaller, offset down
+			draw_wave(color_end, 0.9f, 5.0f);
+
+			// Wave 3: Main color, normal size, center
+			draw_wave(color_start, 1.0f, 0.0f);
+
+		} else if (mode == 6) { // Symetric Dots
+			float center_y = height / 2.0f;
+			float max_amplitude = height * 0.3f;
+			float dot_size = thickness * 2.0f;
+
+			// Draw glow dots
+			if (glow_strength > 0.01f) {
+				gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(glow_color));
+				gs_render_start(true);
+				for (size_t i = 0; i < num_bins; i += 2) { // Skip every other bin for dots
+					float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+					float amplitude = mag * max_amplitude * (1.0f + glow_strength * 0.5f);
+					float x = (float)i / (float)num_bins * width;
+
+					// Top dot
+					float y1 = center_y - amplitude;
+					gs_vertex2f(x - dot_size, y1 - dot_size);
+					gs_vertex2f(x - dot_size, y1 + dot_size);
+					gs_vertex2f(x + dot_size, y1 - dot_size);
+					gs_vertex2f(x + dot_size, y1 + dot_size);
+
+					// Bottom dot
+					float y2 = center_y + amplitude;
+					gs_vertex2f(x - dot_size, y2 - dot_size);
+					gs_vertex2f(x - dot_size, y2 + dot_size);
+					gs_vertex2f(x + dot_size, y2 - dot_size);
+					gs_vertex2f(x + dot_size, y2 + dot_size);
+				}
+				gs_render_stop(GS_TRISTRIP); // Using TRISTRIP for dots
+			}
+
+			// Draw main dots
+			gs_effect_set_color(gs_effect_get_param_by_name(solid, "color"), fix_color(color_start));
+			gs_render_start(true);
+			for (size_t i = 0; i < num_bins; i += 2) {
+				float mag = smoothed_magnitudes[start_bin + i] * amp_scale;
+				float amplitude = mag * max_amplitude;
+				float x = (float)i / (float)num_bins * width;
+
+				// Top dot
+				float y1 = center_y - amplitude;
+				gs_vertex2f(x - dot_size / 2, y1 - dot_size / 2);
+				gs_vertex2f(x - dot_size / 2, y1 + dot_size / 2);
+				gs_vertex2f(x + dot_size / 2, y1 - dot_size / 2);
+				gs_vertex2f(x + dot_size / 2, y1 + dot_size / 2);
+
+				// Bottom dot
+				float y2 = center_y + amplitude;
+				gs_vertex2f(x - dot_size / 2, y2 - dot_size / 2);
+				gs_vertex2f(x - dot_size / 2, y2 + dot_size / 2);
+				gs_vertex2f(x + dot_size / 2, y2 - dot_size / 2);
+				gs_vertex2f(x + dot_size / 2, y2 + dot_size / 2);
+			}
+			gs_render_stop(GS_TRISTRIP);
 		}
 	}
 }
@@ -571,6 +703,9 @@ static obs_properties_t *glass_line_get_properties(void *data)
 	obs_property_list_add_int(mode_list, "Symmetric Waveform", 1);
 	obs_property_list_add_int(mode_list, "Mirrored Bars", 2);
 	obs_property_list_add_int(mode_list, "Filled Mirror", 3);
+	obs_property_list_add_int(mode_list, "Pulse Line", 4);
+	obs_property_list_add_int(mode_list, "Multi-Wave", 5);
+	obs_property_list_add_int(mode_list, "Symetric Dots", 6);
 
 	obs_properties_add_color(props, S_COLOR, T_COLOR);
 	obs_properties_add_color(props, S_COLOR_START, T_COLOR_START);
